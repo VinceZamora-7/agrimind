@@ -1,0 +1,1798 @@
+```html
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover"
+  >
+
+  <meta name="theme-color" content="#07111f">
+
+  <title>Agrimind Monitor</title>
+
+  <style>
+    :root {
+      color-scheme: dark;
+
+      --page: #07111f;
+      --surface: #0f1f31;
+      --surface-secondary: #142a40;
+      --surface-soft: rgba(20, 42, 64, 0.7);
+
+      --border: rgba(148, 163, 184, 0.16);
+      --border-strong: rgba(148, 163, 184, 0.25);
+
+      --text: #f8fafc;
+      --text-secondary: #cbd5e1;
+      --text-muted: #7f93aa;
+
+      --cyan: #38bdf8;
+      --cyan-soft: rgba(56, 189, 248, 0.12);
+
+      --green: #22c55e;
+      --green-soft: rgba(34, 197, 94, 0.13);
+
+      --yellow: #f59e0b;
+      --yellow-soft: rgba(245, 158, 11, 0.13);
+
+      --red: #ef4444;
+      --red-soft: rgba(239, 68, 68, 0.13);
+
+      --gray: #94a3b8;
+      --gray-soft: rgba(148, 163, 184, 0.13);
+
+      --radius-large: 26px;
+      --radius-medium: 17px;
+      --radius-small: 12px;
+
+      --shadow:
+        0 30px 90px rgba(0, 0, 0, 0.35),
+        0 8px 28px rgba(0, 0, 0, 0.2);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      min-height: 100%;
+      background: var(--page);
+    }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      overflow-x: hidden;
+      color: var(--text);
+      font-family:
+        Inter,
+        ui-sans-serif,
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+      background:
+        radial-gradient(
+          circle at 14% 8%,
+          rgba(14, 165, 233, 0.15),
+          transparent 32rem
+        ),
+        radial-gradient(
+          circle at 88% 94%,
+          rgba(34, 197, 94, 0.08),
+          transparent 28rem
+        ),
+        linear-gradient(145deg, #07111f, #0a1627 55%, #07111f);
+    }
+
+    button,
+    img {
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    .app-shell {
+      width: min(1500px, 100%);
+      min-height: 100vh;
+      margin: 0 auto;
+      padding:
+        max(16px, env(safe-area-inset-top))
+        max(16px, env(safe-area-inset-right))
+        max(16px, env(safe-area-inset-bottom))
+        max(16px, env(safe-area-inset-left));
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .topbar {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 3px;
+    }
+
+    .brand {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 13px;
+    }
+
+    .brand-icon {
+      width: 45px;
+      height: 45px;
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(56, 189, 248, 0.22);
+      border-radius: 14px;
+      color: #7dd3fc;
+      background:
+        linear-gradient(
+          145deg,
+          rgba(14, 165, 233, 0.2),
+          rgba(14, 165, 233, 0.05)
+        );
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.07),
+        0 10px 30px rgba(14, 165, 233, 0.07);
+    }
+
+    .brand-icon svg {
+      width: 25px;
+      height: 25px;
+    }
+
+    .brand-copy {
+      min-width: 0;
+    }
+
+    .brand-copy h1 {
+      margin: 0;
+      overflow: hidden;
+      font-size: clamp(18px, 2vw, 23px);
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .brand-copy p {
+      margin: 3px 0 0;
+      overflow: hidden;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.11em;
+      text-overflow: ellipsis;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .topbar-actions {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .connection {
+      min-height: 38px;
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 13px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--text-secondary);
+      background: rgba(15, 31, 49, 0.72);
+      backdrop-filter: blur(18px);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .connection-dot {
+      width: 8px;
+      height: 8px;
+      flex: 0 0 auto;
+      border-radius: 50%;
+      background: var(--yellow);
+      box-shadow: 0 0 0 4px var(--yellow-soft);
+      transition:
+        background-color 180ms ease,
+        box-shadow 180ms ease;
+    }
+
+    .connection.connected .connection-dot {
+      background: var(--green);
+      box-shadow:
+        0 0 0 4px var(--green-soft),
+        0 0 14px rgba(34, 197, 94, 0.4);
+    }
+
+    .connection.disconnected .connection-dot {
+      background: var(--red);
+      box-shadow: 0 0 0 4px var(--red-soft);
+    }
+
+    .connection.connecting .connection-dot {
+      animation: connectionPulse 1.2s ease-in-out infinite;
+    }
+
+    .icon-button {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text-secondary);
+      background: rgba(15, 31, 49, 0.72);
+      cursor: pointer;
+      transition:
+        color 160ms ease,
+        background-color 160ms ease,
+        border-color 160ms ease,
+        transform 160ms ease;
+    }
+
+    .icon-button:hover {
+      border-color: rgba(56, 189, 248, 0.3);
+      color: #e0f2fe;
+      background: rgba(20, 42, 64, 0.9);
+    }
+
+    .icon-button:active {
+      transform: scale(0.96);
+    }
+
+    .icon-button:focus-visible {
+      outline: 3px solid rgba(56, 189, 248, 0.22);
+      outline-offset: 2px;
+    }
+
+    .icon-button svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .monitor-card {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1.55fr) minmax(330px, 0.68fr);
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-large);
+      background: rgba(15, 31, 49, 0.93);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(24px);
+    }
+
+    .capture-panel {
+      position: relative;
+      min-height: 620px;
+      overflow: hidden;
+      isolation: isolate;
+      background:
+        radial-gradient(
+          circle at center,
+          rgba(28, 62, 88, 0.5),
+          transparent 60%
+        ),
+        #020713;
+    }
+
+    .capture-panel::before {
+      position: absolute;
+      z-index: 0;
+      inset: 0;
+      pointer-events: none;
+      content: "";
+      opacity: 0.36;
+      background-image:
+        linear-gradient(
+          rgba(148, 163, 184, 0.04) 1px,
+          transparent 1px
+        ),
+        linear-gradient(
+          90deg,
+          rgba(148, 163, 184, 0.04) 1px,
+          transparent 1px
+        );
+      background-size: 34px 34px;
+    }
+
+    .capture-image {
+      position: absolute;
+      z-index: 1;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      opacity: 0;
+      transform: scale(1.008);
+      transition:
+        opacity 260ms ease,
+        transform 420ms ease;
+      user-select: none;
+    }
+
+    .capture-image.visible {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    .capture-overlay {
+      position: absolute;
+      z-index: 2;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(
+          180deg,
+          rgba(2, 6, 23, 0.44) 0%,
+          transparent 25%,
+          transparent 68%,
+          rgba(2, 6, 23, 0.68) 100%
+        );
+    }
+
+    .capture-topbar {
+      position: absolute;
+      z-index: 4;
+      top: 18px;
+      right: 18px;
+      left: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      pointer-events: none;
+    }
+
+    .camera-label,
+    .event-age {
+      min-width: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 12px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 999px;
+      color: rgba(248, 250, 252, 0.93);
+      background: rgba(2, 6, 23, 0.6);
+      backdrop-filter: blur(16px);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-overflow: ellipsis;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .camera-label-dot {
+      width: 7px;
+      height: 7px;
+      flex: 0 0 auto;
+      border-radius: 50%;
+      background: var(--cyan);
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.85);
+    }
+
+    .event-age {
+      max-width: 50%;
+      color: var(--text-secondary);
+      letter-spacing: 0.03em;
+      text-transform: none;
+    }
+
+    .capture-footer {
+      position: absolute;
+      z-index: 4;
+      right: 18px;
+      bottom: 18px;
+      left: 18px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 12px;
+      pointer-events: none;
+    }
+
+    .capture-timestamp {
+      min-width: 0;
+      max-width: calc(100% - 50px);
+      padding: 9px 12px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      color: rgba(226, 232, 240, 0.92);
+      background: rgba(2, 6, 23, 0.65);
+      backdrop-filter: blur(16px);
+      font-size: 12px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .fullscreen-button {
+      pointer-events: auto;
+      color: #f8fafc;
+      background: rgba(2, 6, 23, 0.65);
+    }
+
+    .empty-state {
+      position: absolute;
+      z-index: 3;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 32px;
+      text-align: center;
+      transition:
+        opacity 220ms ease,
+        visibility 220ms ease;
+    }
+
+    .empty-state.hidden {
+      visibility: hidden;
+      opacity: 0;
+    }
+
+    .empty-content {
+      width: min(410px, 100%);
+    }
+
+    .scanner {
+      position: relative;
+      width: 96px;
+      height: 96px;
+      margin: 0 auto 25px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      border-radius: 28px;
+      color: #7dd3fc;
+      background: var(--cyan-soft);
+      box-shadow:
+        0 0 65px rgba(14, 165, 233, 0.09),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    }
+
+    .scanner::before,
+    .scanner::after {
+      position: absolute;
+      content: "";
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      border-radius: inherit;
+      animation: scannerPulse 2.3s ease-out infinite;
+    }
+
+    .scanner::before {
+      inset: -13px;
+    }
+
+    .scanner::after {
+      inset: -27px;
+      animation-delay: 0.7s;
+    }
+
+    .scanner svg {
+      width: 42px;
+      height: 42px;
+    }
+
+    .empty-content h2 {
+      margin: 0;
+      font-size: clamp(22px, 3vw, 29px);
+      letter-spacing: -0.04em;
+    }
+
+    .empty-content p {
+      max-width: 345px;
+      margin: 11px auto 0;
+      color: var(--text-muted);
+      line-height: 1.65;
+    }
+
+    .image-loader {
+      position: absolute;
+      z-index: 5;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      visibility: hidden;
+      opacity: 0;
+      pointer-events: none;
+      background: rgba(2, 6, 23, 0.34);
+      transition:
+        opacity 180ms ease,
+        visibility 180ms ease;
+    }
+
+    .image-loader.visible {
+      visibility: visible;
+      opacity: 1;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(255, 255, 255, 0.17);
+      border-top-color: #f8fafc;
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+
+    .image-error {
+      position: absolute;
+      z-index: 6;
+      right: 18px;
+      bottom: 76px;
+      left: 18px;
+      display: none;
+      padding: 13px 15px;
+      border: 1px solid rgba(239, 68, 68, 0.24);
+      border-radius: 14px;
+      color: #fecaca;
+      background: rgba(127, 29, 29, 0.78);
+      backdrop-filter: blur(15px);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .image-error.visible {
+      display: block;
+    }
+
+    .details-panel {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      padding: clamp(24px, 3vw, 40px);
+      border-left: 1px solid var(--border);
+      background:
+        linear-gradient(
+          180deg,
+          rgba(20, 42, 63, 0.87),
+          rgba(10, 24, 40, 0.95)
+        );
+    }
+
+    .details-heading {
+      margin-bottom: 32px;
+    }
+
+    .eyebrow {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--text-muted);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .details-heading h2 {
+      margin: 0;
+      font-size: clamp(24px, 3vw, 35px);
+      letter-spacing: -0.045em;
+      line-height: 1.08;
+    }
+
+    .result-section {
+      display: flex;
+      flex-direction: column;
+      gap: 21px;
+    }
+
+    .badge {
+      width: fit-content;
+      max-width: 100%;
+      min-height: 48px;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 17px;
+      overflow-wrap: anywhere;
+      border: 1px solid transparent;
+      border-radius: 999px;
+      font-size: clamp(16px, 2vw, 20px);
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      line-height: 1;
+      text-transform: uppercase;
+      transition:
+        color 180ms ease,
+        background-color 180ms ease,
+        border-color 180ms ease;
+    }
+
+    .badge::before {
+      width: 10px;
+      height: 10px;
+      flex: 0 0 auto;
+      border-radius: 50%;
+      content: "";
+      background: currentColor;
+      box-shadow: 0 0 16px currentColor;
+    }
+
+    .badge.human {
+      border-color: rgba(239, 68, 68, 0.25);
+      color: #fca5a5;
+      background: var(--red-soft);
+    }
+
+    .badge.animal {
+      border-color: rgba(245, 158, 11, 0.25);
+      color: #fcd34d;
+      background: var(--yellow-soft);
+    }
+
+    .badge.none {
+      border-color: rgba(34, 197, 94, 0.25);
+      color: #86efac;
+      background: var(--green-soft);
+    }
+
+    .badge.unknown {
+      border-color: rgba(148, 163, 184, 0.22);
+      color: #cbd5e1;
+      background: var(--gray-soft);
+    }
+
+    .confidence-block {
+      padding-bottom: 22px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .confidence-block h3 {
+      margin: 0;
+      font-size: clamp(23px, 3vw, 32px);
+      letter-spacing: -0.04em;
+      line-height: 1.16;
+    }
+
+    .confidence-block p {
+      margin: 11px 0 0;
+      color: var(--text-secondary);
+      line-height: 1.7;
+    }
+
+    .metadata-grid {
+      display: grid;
+      gap: 11px;
+    }
+
+    .metadata-card {
+      min-width: 0;
+      padding: 15px 16px;
+      border: 1px solid var(--border);
+      border-radius: 15px;
+      background: var(--surface-soft);
+    }
+
+    .metadata-card span {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--text-muted);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.11em;
+      text-transform: uppercase;
+    }
+
+    .metadata-card strong {
+      display: block;
+      overflow: hidden;
+      color: var(--text-secondary);
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.45;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .reused-message {
+      display: none;
+      padding: 13px 15px;
+      border: 1px solid rgba(56, 189, 248, 0.18);
+      border-radius: 14px;
+      color: #bae6fd;
+      background: rgba(14, 165, 233, 0.08);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .reused-message.visible {
+      display: block;
+    }
+
+    .socket-note {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-top: auto;
+      padding-top: 30px;
+      color: var(--text-muted);
+      font-size: 11px;
+      line-height: 1.55;
+    }
+
+    .socket-note svg {
+      width: 16px;
+      height: 16px;
+      flex: 0 0 auto;
+      margin-top: 1px;
+      color: var(--cyan);
+    }
+
+    .socket-note strong {
+      color: var(--text-secondary);
+      font-weight: 700;
+    }
+
+    .toast-container {
+      position: fixed;
+      z-index: 100;
+      right: max(16px, env(safe-area-inset-right));
+      bottom: max(16px, env(safe-area-inset-bottom));
+      width: min(380px, calc(100vw - 32px));
+      display: grid;
+      gap: 10px;
+      pointer-events: none;
+    }
+
+    .toast {
+      padding: 13px 15px;
+      border: 1px solid var(--border-strong);
+      border-radius: 14px;
+      color: var(--text-secondary);
+      background: rgba(15, 31, 49, 0.94);
+      box-shadow: 0 16px 45px rgba(0, 0, 0, 0.28);
+      backdrop-filter: blur(18px);
+      font-size: 12px;
+      line-height: 1.5;
+      opacity: 0;
+      transform: translateY(10px);
+      animation: toastIn 200ms ease forwards;
+    }
+
+    .toast.error {
+      border-color: rgba(239, 68, 68, 0.28);
+      color: #fecaca;
+    }
+
+    .toast.success {
+      border-color: rgba(34, 197, 94, 0.25);
+      color: #bbf7d0;
+    }
+
+    .fullscreen-viewer {
+      position: fixed;
+      z-index: 200;
+      inset: 0;
+      display: none;
+      place-items: center;
+      padding: 24px;
+      background: rgba(2, 6, 23, 0.94);
+      backdrop-filter: blur(14px);
+    }
+
+    .fullscreen-viewer.visible {
+      display: grid;
+    }
+
+    .fullscreen-viewer img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .fullscreen-close {
+      position: absolute;
+      top: max(18px, env(safe-area-inset-top));
+      right: max(18px, env(safe-area-inset-right));
+    }
+
+    @keyframes scannerPulse {
+      0% {
+        opacity: 0.65;
+        transform: scale(0.86);
+      }
+
+      75%,
+      100% {
+        opacity: 0;
+        transform: scale(1.12);
+      }
+    }
+
+    @keyframes connectionPulse {
+      0%,
+      100% {
+        opacity: 0.5;
+        transform: scale(0.85);
+      }
+
+      50% {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes toastIn {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 920px) {
+      .monitor-card {
+        grid-template-columns: 1fr;
+      }
+
+      .capture-panel {
+        min-height: min(62vh, 560px);
+      }
+
+      .details-panel {
+        border-top: 1px solid var(--border);
+        border-left: 0;
+      }
+
+      .details-heading {
+        margin-bottom: 25px;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .app-shell {
+        gap: 12px;
+        padding:
+          max(12px, env(safe-area-inset-top))
+          max(12px, env(safe-area-inset-right))
+          max(12px, env(safe-area-inset-bottom))
+          max(12px, env(safe-area-inset-left));
+      }
+
+      .topbar {
+        align-items: flex-start;
+      }
+
+      .brand-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+      }
+
+      .brand-copy p {
+        font-size: 9px;
+      }
+
+      .connection {
+        min-height: 34px;
+        padding: 7px 10px;
+        font-size: 9px;
+      }
+
+      .connection-label {
+        display: none;
+      }
+
+      .monitor-card {
+        border-radius: 21px;
+      }
+
+      .capture-panel {
+        min-height: 48vh;
+      }
+
+      .capture-topbar {
+        top: 13px;
+        right: 13px;
+        left: 13px;
+      }
+
+      .capture-footer {
+        right: 13px;
+        bottom: 13px;
+        left: 13px;
+      }
+
+      .camera-label,
+      .event-age {
+        padding: 8px 10px;
+        font-size: 9px;
+      }
+
+      .event-age {
+        max-width: 44%;
+      }
+
+      .details-panel {
+        padding: 24px 20px;
+      }
+
+      .badge {
+        min-height: 44px;
+        padding: 10px 15px;
+      }
+
+      .image-error {
+        right: 13px;
+        bottom: 67px;
+        left: 13px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-icon" aria-hidden="true">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M12 3v3"></path>
+            <rect x="5" y="6" width="14" height="13" rx="4"></rect>
+            <path d="M8.5 11h.01"></path>
+            <path d="M15.5 11h.01"></path>
+            <path d="M9 15h6"></path>
+            <path d="M3 11v4"></path>
+            <path d="M21 11v4"></path>
+          </svg>
+        </div>
+
+        <div class="brand-copy">
+          <h1>Agrimind Monitor</h1>
+          <p>Real-time movement intelligence</p>
+        </div>
+      </div>
+
+      <div class="topbar-actions">
+        <div
+          id="connectionStatus"
+          class="connection connecting"
+          role="status"
+          aria-live="polite"
+        >
+          <span class="connection-dot" aria-hidden="true"></span>
+
+          <span id="connectionText" class="connection-label">
+            Connecting
+          </span>
+        </div>
+
+        <button
+          id="reconnectButton"
+          class="icon-button"
+          type="button"
+          title="Reconnect WebSocket"
+          aria-label="Reconnect WebSocket"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M20 7v5h-5"></path>
+            <path d="M4 17v-5h5"></path>
+            <path d="M6.1 9a7 7 0 0 1 11.4-2L20 9"></path>
+            <path d="M17.9 15a7 7 0 0 1-11.4 2L4 15"></path>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <section class="monitor-card">
+      <div id="capturePanel" class="capture-panel">
+        <div class="capture-topbar">
+          <div class="camera-label">
+            <span class="camera-label-dot" aria-hidden="true"></span>
+            Live capture
+          </div>
+
+          <div id="eventAge" class="event-age" hidden>
+            Just now
+          </div>
+        </div>
+
+        <div id="emptyState" class="empty-state">
+          <div class="empty-content">
+            <div class="scanner" aria-hidden="true">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M4 7V5a1 1 0 0 1 1-1h2"></path>
+                <path d="M17 4h2a1 1 0 0 1 1 1v2"></path>
+                <path d="M20 17v2a1 1 0 0 1-1 1h-2"></path>
+                <path d="M7 20H5a1 1 0 0 1-1-1v-2"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+            </div>
+
+            <h2>Waiting for activity</h2>
+
+            <p id="waitingMessage">
+              Connecting to the Agrimind detection service.
+            </p>
+          </div>
+        </div>
+
+        <img
+          id="capture"
+          class="capture-image"
+          alt="Latest Agrimind capture"
+          decoding="async"
+        >
+
+        <div class="capture-overlay" aria-hidden="true"></div>
+
+        <div
+          id="imageLoader"
+          class="image-loader"
+          aria-hidden="true"
+        >
+          <div class="spinner"></div>
+        </div>
+
+        <div id="imageError" class="image-error" role="alert">
+          The event was received, but its capture image could not be loaded.
+        </div>
+
+        <div class="capture-footer">
+          <div id="captureTimestamp" class="capture-timestamp" hidden>
+            Waiting for capture
+          </div>
+
+          <button
+            id="fullscreenButton"
+            class="icon-button fullscreen-button"
+            type="button"
+            title="View capture fullscreen"
+            aria-label="View capture fullscreen"
+            hidden
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M8 3H5a2 2 0 0 0-2 2v3"></path>
+              <path d="M16 3h3a2 2 0 0 1 2 2v3"></path>
+              <path d="M8 21H5a2 2 0 0 1-2-2v-3"></path>
+              <path d="M16 21h3a2 2 0 0 0 2-2v-3"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <aside class="details-panel">
+        <div class="details-heading">
+          <span class="eyebrow">Latest analysis</span>
+          <h2>Detection summary</h2>
+        </div>
+
+        <section
+          class="result-section"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          <span id="badge" class="badge unknown">
+            Waiting
+          </span>
+
+          <div class="confidence-block">
+            <h3 id="confidence">No result yet</h3>
+
+            <p id="reason">
+              The result will update immediately when a WebSocket event is
+              received.
+            </p>
+          </div>
+
+          <div class="metadata-grid">
+            <div class="metadata-card">
+              <span>Captured at</span>
+              <strong id="timestamp">Not available</strong>
+            </div>
+
+            <div class="metadata-card">
+              <span>Event ID</span>
+              <strong id="eventId">Not available</strong>
+            </div>
+
+            <div class="metadata-card">
+              <span>Socket status</span>
+              <strong id="socketStatus">Connecting</strong>
+            </div>
+          </div>
+
+          <div id="reused" class="reused-message"></div>
+        </section>
+
+        <footer class="socket-note">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M8 12h8"></path>
+            <path d="M12 8v8"></path>
+            <circle cx="12" cy="12" r="9"></circle>
+          </svg>
+
+          <span>
+            Receiving events in real time through
+            <strong>WebSocket</strong>. The monitor reconnects automatically
+            when the connection is interrupted.
+          </span>
+        </footer>
+      </aside>
+    </section>
+  </main>
+
+  <div
+    id="toastContainer"
+    class="toast-container"
+    aria-live="polite"
+    aria-atomic="true"
+  ></div>
+
+  <div
+    id="fullscreenViewer"
+    class="fullscreen-viewer"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Agrimind capture fullscreen view"
+  >
+    <button
+      id="fullscreenClose"
+      class="icon-button fullscreen-close"
+      type="button"
+      aria-label="Close fullscreen capture"
+      title="Close fullscreen capture"
+    >
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M18 6 6 18"></path>
+        <path d="m6 6 12 12"></path>
+      </svg>
+    </button>
+
+    <img
+      id="fullscreenImage"
+      alt="Agrimind capture fullscreen"
+    >
+  </div>
+
+  <script>
+    const SOCKET_URL = "ws://127.0.0.1:8766";
+    const INITIAL_RECONNECT_DELAY_MS = 1000;
+    const MAX_RECONNECT_DELAY_MS = 15000;
+    const CONNECTION_TIMEOUT_MS = 8000;
+    const STALE_CONNECTION_MS = 45000;
+
+    const allowedLabels = new Set([
+      "human",
+      "animal",
+      "none",
+      "unknown"
+    ]);
+
+    const elements = {
+      badge: document.getElementById("badge"),
+      capture: document.getElementById("capture"),
+      capturePanel: document.getElementById("capturePanel"),
+      captureTimestamp: document.getElementById("captureTimestamp"),
+      confidence: document.getElementById("confidence"),
+      connectionStatus: document.getElementById("connectionStatus"),
+      connectionText: document.getElementById("connectionText"),
+      emptyState: document.getElementById("emptyState"),
+      eventAge: document.getElementById("eventAge"),
+      eventId: document.getElementById("eventId"),
+      fullscreenButton: document.getElementById("fullscreenButton"),
+      fullscreenClose: document.getElementById("fullscreenClose"),
+      fullscreenImage: document.getElementById("fullscreenImage"),
+      fullscreenViewer: document.getElementById("fullscreenViewer"),
+      imageError: document.getElementById("imageError"),
+      imageLoader: document.getElementById("imageLoader"),
+      reason: document.getElementById("reason"),
+      reconnectButton: document.getElementById("reconnectButton"),
+      reused: document.getElementById("reused"),
+      socketStatus: document.getElementById("socketStatus"),
+      timestamp: document.getElementById("timestamp"),
+      toastContainer: document.getElementById("toastContainer"),
+      waitingMessage: document.getElementById("waitingMessage")
+    };
+
+    let socket = null;
+    let currentEventId = null;
+    let latestEventTimestamp = null;
+    let reconnectAttempts = 0;
+    let reconnectTimer = null;
+    let connectionTimeout = null;
+    let staleConnectionTimer = null;
+    let manualReconnect = false;
+
+    function setConnectionState(state, detail = "") {
+      elements.connectionStatus.className = `connection ${state}`;
+
+      const states = {
+        connecting: {
+          title: "Connecting",
+          waiting: "Connecting to the Agrimind detection service."
+        },
+        connected: {
+          title: "Connected",
+          waiting: "Connected. Waiting for the next detected movement."
+        },
+        disconnected: {
+          title: "Disconnected",
+          waiting: "Connection lost. Attempting to reconnect automatically."
+        }
+      };
+
+      const selectedState = states[state] || states.disconnected;
+
+      elements.connectionText.textContent = selectedState.title;
+      elements.socketStatus.textContent = detail
+        ? `${selectedState.title} · ${detail}`
+        : selectedState.title;
+
+      elements.waitingMessage.textContent = selectedState.waiting;
+
+      elements.connectionStatus.setAttribute(
+        "aria-label",
+        detail
+          ? `${selectedState.title}: ${detail}`
+          : selectedState.title
+      );
+    }
+
+    function normalizeLabel(value) {
+      const normalized = String(value || "")
+        .trim()
+        .toLowerCase();
+
+      return allowedLabels.has(normalized)
+        ? normalized
+        : "unknown";
+    }
+
+    function formatTimestamp(value) {
+      if (!value) {
+        return "Not available";
+      }
+
+      const date = new Date(value);
+
+      if (Number.isNaN(date.getTime())) {
+        return String(value);
+      }
+
+      return new Intl.DateTimeFormat(undefined, {
+        dateStyle: "medium",
+        timeStyle: "medium"
+      }).format(date);
+    }
+
+    function getTimestampDate(value) {
+      const date = new Date(value);
+
+      return Number.isNaN(date.getTime())
+        ? null
+        : date;
+    }
+
+    function formatRelativeAge(date) {
+      if (!(date instanceof Date)) {
+        return "";
+      }
+
+      const elapsedSeconds = Math.max(
+        0,
+        Math.floor((Date.now() - date.getTime()) / 1000)
+      );
+
+      if (elapsedSeconds < 5) {
+        return "Just now";
+      }
+
+      if (elapsedSeconds < 60) {
+        return `${elapsedSeconds}s ago`;
+      }
+
+      const elapsedMinutes = Math.floor(elapsedSeconds / 60);
+
+      if (elapsedMinutes < 60) {
+        return `${elapsedMinutes}m ago`;
+      }
+
+      const elapsedHours = Math.floor(elapsedMinutes / 60);
+
+      if (elapsedHours < 24) {
+        return `${elapsedHours}h ago`;
+      }
+
+      const elapsedDays = Math.floor(elapsedHours / 24);
+      return `${elapsedDays}d ago`;
+    }
+
+    function updateEventAge() {
+      if (!latestEventTimestamp) {
+        elements.eventAge.hidden = true;
+        return;
+      }
+
+      elements.eventAge.hidden = false;
+      elements.eventAge.textContent =
+        formatRelativeAge(latestEventTimestamp);
+    }
+
+    function encodeImagePath(path) {
+      return String(path || "")
+        .replaceAll("\\", "/")
+        .split("/")
+        .filter(Boolean)
+        .map(segment => encodeURIComponent(segment))
+        .join("/");
+    }
+
+    function createImageUrl(imagePath, eventId) {
+      const encodedPath = encodeImagePath(imagePath);
+
+      if (!encodedPath) {
+        return "";
+      }
+
+      return (
+        `/${encodedPath}` +
+        `?event=${encodeURIComponent(eventId)}` +
+        `&time=${Date.now()}`
+      );
+    }
+
+    function isValidEvent(event) {
+      return Boolean(
+        event &&
+        typeof event === "object" &&
+        String(event.event_id || "").trim()
+      );
+    }
+
+    function showToast(message, type = "") {
+      const toast = document.createElement("div");
+      toast.className = `toast ${type}`.trim();
+      toast.textContent = message;
+
+      elements.toastContainer.appendChild(toast);
+
+      window.setTimeout(() => {
+        toast.remove();
+      }, 3500);
+    }
+
+    function setImageLoading(isLoading) {
+      elements.imageLoader.classList.toggle("visible", isLoading);
+    }
+
+    function showImageError(message) {
+      elements.imageError.textContent = message;
+      elements.imageError.classList.add("visible");
+    }
+
+    function hideImageError() {
+      elements.imageError.classList.remove("visible");
+    }
+
+    function loadCaptureImage(imagePath, eventId) {
+      const imageUrl = createImageUrl(imagePath, eventId);
+
+      hideImageError();
+
+      if (!imageUrl) {
+        setImageLoading(false);
+        elements.capture.classList.remove("visible");
+        elements.fullscreenButton.hidden = true;
+
+        showImageError(
+          "The event did not include a valid capture image path."
+        );
+
+        return;
+      }
+
+      setImageLoading(true);
+
+      const preloadImage = new Image();
+
+      preloadImage.onload = () => {
+        elements.capture.src = imageUrl;
+        elements.capture.classList.add("visible");
+        elements.emptyState.classList.add("hidden");
+        elements.fullscreenButton.hidden = false;
+        setImageLoading(false);
+        hideImageError();
+      };
+
+      preloadImage.onerror = () => {
+        setImageLoading(false);
+        elements.capture.classList.remove("visible");
+        elements.fullscreenButton.hidden = true;
+
+        showImageError(
+          "The event was received, but its capture image could not be loaded."
+        );
+      };
+
+      preloadImage.src = imageUrl;
+    }
+
+    function showEvent(event) {
+      if (!isValidEvent(event)) {
+        console.warn("Ignored invalid Agrimind event:", event);
+        return;
+      }
+
+      const eventId = String(event.event_id).trim();
+
+      if (eventId === currentEventId) {
+        return;
+      }
+
+      currentEventId = eventId;
+
+      const displayLabel =
+        String(event.display_label || "Unknown").trim() || "Unknown";
+
+      const cssLabel = normalizeLabel(event.css_label);
+      const formattedTimestamp = formatTimestamp(event.timestamp);
+
+      latestEventTimestamp = getTimestampDate(event.timestamp) || new Date();
+
+      elements.badge.textContent = displayLabel;
+      elements.badge.className = `badge ${cssLabel}`;
+
+      elements.confidence.textContent =
+        String(event.confidence || "Confidence unavailable");
+
+      elements.reason.textContent =
+        String(
+          event.reason ||
+          "No explanation was provided for this detection."
+        );
+
+      elements.timestamp.textContent = formattedTimestamp;
+      elements.captureTimestamp.textContent = formattedTimestamp;
+      elements.captureTimestamp.hidden = false;
+
+      elements.eventId.textContent = eventId;
+
+      const reusedText = String(event.reused || "").trim();
+
+      elements.reused.textContent = reusedText;
+      elements.reused.classList.toggle(
+        "visible",
+        Boolean(reusedText)
+      );
+
+      document.title = `Agrimind — ${displayLabel}`;
+
+      updateEventAge();
+      loadCaptureImage(event.image, eventId);
+    }
+
+    function clearReconnectTimer() {
+      if (reconnectTimer) {
+        window.clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+    }
+
+    function clearConnectionTimeout() {
+      if (connectionTimeout) {
+        window.clearTimeout(connectionTimeout);
+        connectionTimeout = null;
+      }
+    }
+
+    function resetStaleConnectionTimer() {
+      if (staleConnectionTimer) {
+        window.clearTimeout(staleConnectionTimer);
+      }
+
+      staleConnectionTimer = window.setTimeout(() => {
+        if (
+          socket &&
+          socket.readyState === WebSocket.OPEN
+        ) {
+          setConnectionState(
+            "connected",
+            "Waiting for new events"
+          );
+        }
+      }, STALE_CONNECTION_MS);
+    }
+
+    function getReconnectDelay() {
+      const exponentialDelay =
+        INITIAL_RECONNECT_DELAY_MS *
+        Math.pow(1.8, reconnectAttempts);
+
+      return Math.min(
+        Math.round(exponentialDelay),
+        MAX_RECONNECT_DELAY_MS
+      );
+    }
+
+    function scheduleReconnect() {
+      clearReconnectTimer();
+
+      reconnectAttempts += 1;
+
+      const delay = getReconnectDelay();
+      const seconds = Math.max(1, Math.ceil(delay / 1000));
+
+      setConnectionState(
+        "disconnected",
+        `Retrying in ${seconds}s`
+      );
+
+      reconnectTimer = window.setTimeout(() => {
+        connect();
+      }, delay);
+    }
+
+    function disconnectCurrentSocket() {
+      clearConnectionTimeout();
+      clearReconnectTimer();
+
+      if (!socket) {
+        return;
+      }
+
+      socket.onopen = null;
+      socket.onmessage = null;
+      socket.onerror = null;
+      socket.onclose = null;
+
+      try {
+        socket.close();
+      } catch (error) {
+        console.warn("Unable to close WebSocket:", error);
+      }
+
+      socket = null;
+    }
+
+    function connect() {
+      disconnectCurrentSocket();
+      setConnectionState("connecting");
+
+      try {
+        socket = new WebSocket(SOCKET_URL);
+      } catch (error) {
+        console.error("Unable to create WebSocket:", error);
+        scheduleReconnect();
+        return;
+      }
+
+      connectionTimeout = window.setTimeout(() => {
+        if (
+          socket &&
+          socket.readyState === WebSocket.CONNECTING
+        ) {
+          socket.close();
+        }
+      }, CONNECTION_TIMEOUT_MS);
+
+      socket.onopen = () => {
+        clearConnectionTimeout();
+
+        const wasReconnecting =
+          reconnectAttempts > 0 || manualReconnect;
+
+        reconnectAttempts = 0;
+        manualReconnect = false;
+
+        setConnectionState("connected");
+        resetStaleConnectionTimer();
+
+        if (wasReconnecting) {
+          showToast(
+            "Agrimind WebSocket connection restored.",
+            "success"
+          );
+        }
+      };
+
+      socket.onmessage = message => {
+        resetStaleConnectionTimer();
+
+        try {
+          const event = JSON.parse(message.data);
+          showEvent(event);
+        } catch (error) {
+          console.warn(
+            "Unable to read Agrimind WebSocket message:",
+            error
+          );
+        }
+      };
+
+      socket.onerror = error => {
+        console.warn("Agrimind WebSocket error:", error);
+      };
+
+      socket.onclose = event => {
+        clearConnectionTimeout();
+
+        socket = null;
+
+        const detail = event.code
+          ? `Code ${event.code}`
+          : "";
+
+        setConnectionState("disconnected", detail);
+        scheduleReconnect();
+      };
+    }
+
+    function reconnectManually() {
+      manualReconnect = true;
+      reconnectAttempts = 0;
+
+      showToast("Reconnecting to Agrimind…");
+
+      connect();
+    }
+
+    function openFullscreenViewer() {
+      if (!elements.capture.src) {
+        return;
+      }
+
+      elements.fullscreenImage.src = elements.capture.src;
+      elements.fullscreenViewer.classList.add("visible");
+      document.body.style.overflow = "hidden";
+      elements.fullscreenClose.focus();
+    }
+
+    function closeFullscreenViewer() {
+      elements.fullscreenViewer.classList.remove("visible");
+      elements.fullscreenImage.removeAttribute("src");
+      document.body.style.overflow = "";
+      elements.fullscreenButton.focus();
+    }
+
+    elements.reconnectButton.addEventListener(
+      "click",
+      reconnectManually
+    );
+
+    elements.fullscreenButton.addEventListener(
+      "click",
+      openFullscreenViewer
+    );
+
+    elements.fullscreenClose.addEventListener(
+      "click",
+      closeFullscreenViewer
+    );
+
+    elements.fullscreenViewer.addEventListener(
+      "click",
+      event => {
+        if (event.target === elements.fullscreenViewer) {
+          closeFullscreenViewer();
+        }
+      }
+    );
+
+    document.addEventListener("keydown", event => {
+      if (
+        event.key === "Escape" &&
+        elements.fullscreenViewer.classList.contains("visible")
+      ) {
+        closeFullscreenViewer();
+      }
+    });
+
+    window.addEventListener("online", () => {
+      if (
+        !socket ||
+        socket.readyState === WebSocket.CLOSED
+      ) {
+        reconnectManually();
+      }
+    });
+
+    window.addEventListener("offline", () => {
+      setConnectionState(
+        "disconnected",
+        "Device is offline"
+      );
+    });
+
+    window.addEventListener("beforeunload", () => {
+      disconnectCurrentSocket();
+
+      if (staleConnectionTimer) {
+        window.clearTimeout(staleConnectionTimer);
+      }
+    });
+
+    window.setInterval(updateEventAge, 1000);
+
+    connect();
+  </script>
+</body>
+</html>
+```

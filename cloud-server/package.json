@@ -1,0 +1,11 @@
+{
+  "name": "agrimind-cloud-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Latest-event relay between Agrimind Orange Pi devices and the mobile app",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "engines": { "node": ">=20" }
+}

@@ -1,0 +1,20 @@
+[Unit]
+Description=Agrimind Orange Pi Detection API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=orangepi
+Group=orangepi
+SupplementaryGroups=video gpio
+WorkingDirectory=/home/orangepi/Agrimind/server
+EnvironmentFile=-/home/orangepi/Agrimind/.env
+ExecStart=/usr/bin/node /home/orangepi/Agrimind/server/server.orange-pi.js
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

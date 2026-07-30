@@ -1,0 +1,19 @@
+{
+  "name": "agrimind-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Agrimind API server for local development and Orange Pi deployment",
+  "scripts": {
+    "start": "node server.local.js",
+    "start:local": "node server.local.js",
+    "start:orange-pi": "node server.orange-pi.js",
+    "pairing:init": "node scripts/initializePairing.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18.17"
+  },
+  "dependencies": {
+    "ws": "^8.21.1"
+  }
+}

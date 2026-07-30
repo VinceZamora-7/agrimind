@@ -1,0 +1,25 @@
+# Dependencies and build output
+**/node_modules/
+**/.expo/
+**/dist/
+**/web-build/
+
+# Runtime data: keep the directories, not generated content
+storage/captures/*
+!storage/captures/.gitkeep
+storage/logs/*
+!storage/logs/.gitkeep
+
+# Secrets and machine-local configuration
+.env
+.env.*
+!.env.example
+agrimind-mobile/.env*
+!agrimind-mobile/.env.example
+cloud-server/storage/*
+!cloud-server/storage/.gitkeep
+
+# Logs, editor, and operating-system files
+*.log
+.DS_Store
+.vscode/
