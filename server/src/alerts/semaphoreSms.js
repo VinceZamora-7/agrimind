@@ -16,9 +16,29 @@ function normalizeNumber(value) {
 function maskNumber(number) { return String(number).replace(/.(?=.{4})/g, "*"); }
 function localDay(date = new Date()) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`; }
 
+function rainForecastLabel(value) {
+  const chance = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+  if (chance <= 20) return "None/Negligible";
+  if (chance <= 50) return "Light/Scattered";
+  if (chance <= 70) return "Moderate";
+  return "Heavy";
+}
+function dailyForecastSummary(condition) {
+  const text = String(condition || "").toLowerCase();
+  if (text.includes("severe") || text.includes("hail")) return "Stormy Weather";
+  if (text.includes("thunder")) return "Cloudy with Scattered Thunderstorms";
+  if (text.includes("rain") || text.includes("drizzle")) return "Monsoon Rains";
+  if (text.includes("partly")) return "Partly Cloudy";
+  if (text.includes("overcast") || text.includes("cloud") || text.includes("fog")) return "Mostly Cloudy";
+  return "Sunny / Clear";
+}
+
 function createSemaphoreSms(config, usagePath, push = null) {
   const settingsPath = config.semaphore.settingsPath;
+  const queuePath = settingsPath + ".queue.json";
   let timer = null;
+  let queueTimer = null;
+  let queueProcessing = false;
 
   function defaultSettings() {
     return {
@@ -60,6 +80,27 @@ function createSemaphoreSms(config, usagePath, push = null) {
     });
   }
   function saveRecord(record) { const records = history(); records.push(record); writeJsonAtomic(usagePath, records.slice(-1000)); return record; }
+  function queuedAlerts() { return readJson(queuePath, []).filter((item) => item?.queue_id && item?.category); }
+  function saveQueue(items) { writeJsonAtomic(queuePath, items.slice(-100)); return items; }
+  function enqueue(category, message, context, retryAfterSeconds = 60, queueKey = "default") {
+    const key = category + ":" + queueKey;
+    const item = {
+      queue_id: "queued_" + Date.now() + "_" + Math.random().toString(16).slice(2),
+      key, category, message: String(message).slice(0, 900), context,
+      queued_at: new Date().toISOString(),
+      send_after: new Date(Date.now() + Math.max(1, Number(retryAfterSeconds) || 60) * 1000).toISOString(),
+      attempts: 0,
+    };
+    saveQueue([...queuedAlerts().filter((current) => current.key !== key), item]);
+    return item;
+  }
+  function updateQueued(queueId, update) {
+    const current = queuedAlerts();
+    const item = current.find((entry) => entry.queue_id === queueId);
+    if (!item) return;
+    const next = update(item);
+    saveQueue(next ? current.map((entry) => entry.queue_id === queueId ? next : entry) : current.filter((entry) => entry.queue_id !== queueId));
+  }
   function balance() {
     const creditsUsed = history().filter((entry) => entry.sent === true).reduce((sum, entry) => sum + Number(entry.credits_charged || entry.provider_messages?.length || 1), 0);
     const remaining = Math.max(0, config.semaphore.projectCreditLimit - creditsUsed);
@@ -96,7 +137,7 @@ function createSemaphoreSms(config, usagePath, push = null) {
   async function sendCategory(category, message, context = {}, options = {}) {
     if (!CATEGORIES.includes(category)) throw Object.assign(new Error("Unknown SMS category"), { status: 400 });
     let pushResult = null;
-    if (push) {
+    if (push && !options.skipPush) {
       try {
         pushResult = await push.send(category, message, context, {
           force: options.force,
@@ -108,7 +149,13 @@ function createSemaphoreSms(config, usagePath, push = null) {
       }
     }
     const check = gate(category, options);
-    if (!check.allowed) return { sent: false, channel: "sms", category, skip_reason: check.reason, retry_after_seconds: check.retry_after_seconds, push: pushResult };
+    if (!check.allowed) {
+      if (check.reason === "category_cooldown" && options.queueOnCooldown && !options.fromQueue) {
+        const queued = enqueue(category, message, context, check.retry_after_seconds, options.queueKey);
+        return { sent: false, queued: true, queue_id: queued.queue_id, send_after: queued.send_after, channel: "sms", category, skip_reason: check.reason, retry_after_seconds: check.retry_after_seconds, push: pushResult };
+      }
+      return { sent: false, channel: "sms", category, skip_reason: check.reason, retry_after_seconds: check.retry_after_seconds, push: pushResult };
+    }
     const current = settings();
     const smsMessage = String(message).slice(0, 900);
     const creditsRequired = current.recipients.length * Math.max(1, Math.ceil(smsMessage.length / 160));
@@ -137,8 +184,33 @@ function createSemaphoreSms(config, usagePath, push = null) {
       return { sent: accepted, channel: "sms", category, credits_charged: creditsRequired, balance: balance(), recipients: record.recipients, provider_messages: record.provider_messages, push: pushResult };
     } catch (error) {
       saveRecord({ alert_id: `sms_${Date.now()}`, timestamp, category, message, sent: false, recipients: current.recipients.map(maskNumber), context, provider: "semaphore", error: error.name === "AbortError" ? "Semaphore request timed out" : error.message });
+      if (options.queueOnFailure && !options.fromQueue) {
+        const queued = enqueue(category, message, context, 60, options.queueKey);
+        return { sent: false, queued: true, queue_id: queued.queue_id, send_after: queued.send_after, channel: "sms", category, error: error.message, push: pushResult };
+      }
       throw error;
     } finally { clearTimeout(timeout); }
+  }
+
+  async function processQueue() {
+    if (queueProcessing) return;
+    queueProcessing = true;
+    try {
+      const due = queuedAlerts().filter((item) => Date.parse(item.send_after) <= Date.now());
+      for (const item of due) {
+        try {
+          const result = await sendCategory(item.category, item.message, item.context, { fromQueue: true, skipPush: true });
+          if (result.sent) {
+            updateQueued(item.queue_id, () => null);
+          } else {
+            const retrySeconds = result.retry_after_seconds || 60;
+            updateQueued(item.queue_id, (current) => ({ ...current, attempts: current.attempts + 1, send_after: new Date(Date.now() + retrySeconds * 1000).toISOString(), last_error: result.skip_reason || result.error || "not_sent" }));
+          }
+        } catch (error) {
+          updateQueued(item.queue_id, (current) => ({ ...current, attempts: current.attempts + 1, send_after: new Date(Date.now() + 60_000).toISOString(), last_error: error.message }));
+        }
+      }
+    } finally { queueProcessing = false; }
   }
 
   function updateRecipients(values) {
@@ -172,21 +244,23 @@ function createSemaphoreSms(config, usagePath, push = null) {
   async function evaluateReading(reading) {
     const profile = settings().crop_profiles[reading.slave_id];
     if (!profile || reading.sensor_on === false) return { sent: false, skip_reason: profile ? "sensor_off" : "crop_profile_missing" };
-    const issues = [];
-    if (reading.temperature_c < profile.temperature_min) issues.push("temperature too low");
-    if (reading.temperature_c > profile.temperature_max) issues.push("temperature too high");
-    if (reading.humidity_percent < profile.humidity_min) issues.push("humidity too low");
-    if (reading.humidity_percent > profile.humidity_max) issues.push("humidity too high");
-    if (!issues.length) return { sent: false, skip_reason: "reading_normal" };
-    return sendCategory("PLANT_ABNORMAL", `AGRIMIND PLANT ALERT\n${reading.display_name || reading.slave_id} (${profile.crop}): ${issues.join(", ")}. Temp ${reading.temperature_c}C, humidity ${reading.humidity_percent}%. Check crops and irrigation.`, { slave_id: reading.slave_id, crop: profile.crop, issues });
+    const temperatureIssues = [];
+    const humidityIssues = [];
+    if (reading.temperature_c < profile.temperature_min) temperatureIssues.push("temperature too low");
+    if (reading.temperature_c > profile.temperature_max) temperatureIssues.push("temperature too high");
+    if (reading.humidity_percent < profile.humidity_min) humidityIssues.push("humidity too low");
+    if (reading.humidity_percent > profile.humidity_max) humidityIssues.push("humidity too high");
+    if (!temperatureIssues.length || !humidityIssues.length) return { sent: false, skip_reason: "reading_normal" };
+    const issues = [...temperatureIssues, ...humidityIssues];
+    return sendCategory("PLANT_ABNORMAL", `AGRIMIND PLANT ALERT\n${reading.display_name || reading.slave_id} (${profile.crop}): ${issues.join(", ")}. Temp ${reading.temperature_c}C, humidity ${reading.humidity_percent}%. Check crops and irrigation.`, { slave_id: reading.slave_id, crop: profile.crop, issues }, { queueOnCooldown: true, queueOnFailure: true, queueKey: reading.slave_id });
   }
   async function evaluateWeather(weather, { daily = false } = {}) {
     if (!weather || !["ready", "stale"].includes(weather.status)) return [];
     const results = [];
     const today = weather.daily?.[0] || {};
-    if (daily) results.push(await sendCategory("DAILY_WEATHER", `AGRIMIND DAILY WEATHER\nFarm: ${weather.location_name}. Today ${Math.round(today.temperature_max_c ?? weather.temperature_c)}C, humidity ${Math.round(weather.humidity_percent || 0)}%, rain chance ${Math.round(today.rain_probability_percent || 0)}%. ${weather.irrigation_outlook?.title || "Check soil moisture before watering."}`, { forecast_date: today.date }));
-    if (Number(weather.apparent_temperature_c) >= config.semaphore.heatIndexThresholdC) results.push(await sendCategory("HEAT_INDEX_HIGH", `AGRIMIND HEAT ALERT\nVery high heat index: ${Math.round(weather.apparent_temperature_c)}C. Water crops early morning or late afternoon and check soil moisture.`, { apparent_temperature_c: weather.apparent_temperature_c }));
-    if (Number(today.rain_probability_percent) >= config.semaphore.rainProbabilityThreshold || Number(today.precipitation_sum_mm) >= config.semaphore.rainMmThreshold) results.push(await sendCategory("RAIN_FORECAST_HIGH", `AGRIMIND RAIN ALERT\nHigh rain forecast at ${weather.location_name}: ${Math.round(today.rain_probability_percent || 0)}% chance, ${Number(today.precipitation_sum_mm || 0).toFixed(1)} mm expected. Pause irrigation and check drainage.`, { forecast_date: today.date }));
+    if (daily) results.push(await sendCategory("DAILY_WEATHER", "AGRIMIND DAILY FORECAST ADVISORY\nSUMMARY: " + dailyForecastSummary(today.condition) + " | Lugar: " + weather.location_name, { forecast_date: today.date }));
+    if (Number(weather.apparent_temperature_c) >= config.semaphore.heatIndexThresholdC) results.push(await sendCategory("HEAT_INDEX_HIGH", "AGRIMIND EXTREME HEAT ADVISORY\nHEAT INDEX: " + Math.round(weather.apparent_temperature_c) + "C\nLugar: " + weather.location_name, { apparent_temperature_c: weather.apparent_temperature_c }));
+    if (Number(today.rain_probability_percent) >= config.semaphore.rainProbabilityThreshold || Number(today.precipitation_sum_mm) >= config.semaphore.rainMmThreshold) results.push(await sendCategory("RAIN_FORECAST_HIGH", "AGRIMIND RAIN FORECAST ADVISORY\nCHANCE OF RAIN: " + Math.round(today.rain_probability_percent || 0) + "% (" + rainForecastLabel(today.rain_probability_percent) + ") | Lugar: " + weather.location_name, { forecast_date: today.date }));
     return results;
   }
   function start({ weather, slaveStore }) {
@@ -217,9 +291,11 @@ function createSemaphoreSms(config, usagePath, push = null) {
     }
     tick();
     timer = setInterval(tick, 60_000); timer.unref?.();
+    void processQueue();
+    queueTimer = setInterval(processQueue, 5_000); queueTimer.unref?.();
   }
-  function stop() { if (timer) clearInterval(timer); }
-  function status() { const current = settings(); return { enabled: config.semaphore.enabled, sms_alerts_enabled: current.sms_alerts_enabled, configured: Boolean(config.semaphore.apiKey && current.recipients.length), recipients: current.recipients.map(maskNumber), sender_name: config.semaphore.senderName || null, project_balance: balance(), ...gate("TEST_SMS", { force: true }) }; }
+  function stop() { if (timer) clearInterval(timer); if (queueTimer) clearInterval(queueTimer); timer = null; queueTimer = null; }
+  function status() { const current = settings(); return { enabled: config.semaphore.enabled, sms_alerts_enabled: current.sms_alerts_enabled, configured: Boolean(config.semaphore.apiKey && current.recipients.length), recipients: current.recipients.map(maskNumber), sender_name: config.semaphore.senderName || null, project_balance: balance(), queued_alerts: queuedAlerts().length, ...gate("TEST_SMS", { force: true }) }; }
 
   return { balance, evaluateReading, evaluateWeather, history: (limit = 50) => history().slice(-limit).reverse(), recipients: () => settings().recipients, rules: settings, send: sendSecurity, sendCategory, start, status, stop, updateRecipients, updateRules };
 }

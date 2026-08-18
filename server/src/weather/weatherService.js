@@ -159,7 +159,7 @@ function createWeatherService(config) {
     await refresh();
     return current;
   }
-  return { refresh, searchLocations, snapshot: () => current, start, stop, updateLocation };
+  return { location: () => ({ ...location }), refresh, searchLocations, snapshot: () => current, start, stop, updateLocation };
 }
 
 module.exports = { createWeatherService, WEATHER_CODES };

@@ -10,6 +10,7 @@ const { createCaptureRetention } = require("../src/events/captureRetention");
 const { cameraCandidates } = require("../src/hardware/camera");
 const { createRearmGate } = require("../src/events/detector");
 const { createSemaphoreSms, normalizeNumber } = require("../src/alerts/semaphoreSms");
+const { evaluateZoneEnvironment } = require("../src/app");
 
 function config(overrides = {}) {
   return { gemini: { enabled: true, apiKey: "test-key", model: "test-model", minIntervalMs: 0, maxPerHour: 2, maxPerDay: 3, dailyBudgetUsd: 1, estimatedRequestUsd: 0.1, ...overrides } };
@@ -47,8 +48,26 @@ test("minimum interval includes actionable retry details", () => {
 test("Gemini structured result accepts only supported labels", () => {
   const response = { candidates: [{ content: { parts: [{ text: JSON.stringify({ label: "animal", confidence: 91, reason: "A dog is visible." }) }] } }] };
   assert.equal(parseCandidate(response).label, "animal");
+  response.candidates[0].content.parts[0].text = JSON.stringify({ label: "human", confidence: 100, visibility: "partial", reason: "Only an arm is visible." });
+  assert.deepEqual(parseCandidate(response), { label: "human", confidence: 85, visibility: "partial", reason: "Only an arm is visible." });
   response.candidates[0].content.parts[0].text = JSON.stringify({ label: "vehicle", confidence: 50, reason: "" });
   assert.throws(() => parseCandidate(response), /invalid label/);
+});
+
+test("zone inspection requires both temperature and humidity to be abnormal", () => {
+  const profiles = { "slave-1": { crop: "Tomato", temperature_min: 20, temperature_max: 30, humidity_min: 50, humidity_max: 80 } };
+  const temperatureOnlyTracker = {};
+  let result;
+  for (let index = 0; index < 3; index += 1) result = evaluateZoneEnvironment({ status: "online", temperature_c: 35, humidity_percent: 60 }, profiles, temperatureOnlyTracker)[0];
+  assert.equal(result.status, "normal");
+  assert.equal(result.capture_recommended, false);
+  assert.deepEqual(result.issues, []);
+
+  const bothTracker = {};
+  for (let index = 0; index < 3; index += 1) result = evaluateZoneEnvironment({ status: "online", temperature_c: 35, humidity_percent: 90 }, profiles, bothTracker)[0];
+  assert.equal(result.status, "needs_inspection");
+  assert.equal(result.capture_recommended, true);
+  assert.deepEqual(result.issues.map((issue) => issue.type), ["temperature_high", "humidity_high"]);
 });
 
 test("perceptual hash distance counts changed bits", () => {
@@ -120,6 +139,25 @@ test("Agrimind project SMS ledger is capped independently from provider balance"
   assert.equal(projectBalance.credit_balance, 48);
   assert.equal(projectBalance.low_balance_threshold, 20);
   assert.equal(projectBalance.low_balance, false);
+});
+
+test("plant SMS is durably queued during category cooldown", async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "agrimind-sms-queue-"));
+  const usagePath = path.join(directory, "usage.json");
+  fs.writeFileSync(usagePath, JSON.stringify([{ timestamp: new Date().toISOString(), category: "PLANT_ABNORMAL", sent: true, credits_charged: 1 }]));
+  const sms = createSemaphoreSms({ semaphore: {
+    enabled: true, apiKey: "test", recipients: ["639171234567"], senderName: "",
+    settingsPath: path.join(directory, "settings.json"), projectCreditLimit: 50,
+    lowBalanceCredits: 20, maxPerDay: 20, minIntervalMs: 0,
+    categoryCooldownMs: { PLANT_ABNORMAL: 60000 }, dailyWeatherEnabled: false,
+    plantAlertEnabled: true, heatAlertEnabled: false, rainAlertEnabled: false, typhoonAlertEnabled: false,
+  } }, usagePath);
+  const result = await sms.sendCategory("PLANT_ABNORMAL", "new abnormal condition", { slave_id: "slave-1" }, { queueOnCooldown: true, queueKey: "slave-1" });
+  assert.equal(result.queued, true);
+  assert.equal(result.skip_reason, "category_cooldown");
+  assert.equal(sms.status().queued_alerts, 1);
+  const queue = JSON.parse(fs.readFileSync(path.join(directory, "settings.json.queue.json"), "utf8"));
+  assert.equal(queue[0].context.slave_id, "slave-1");
 });
 
 test("Semaphore master rule blocks every SMS category", () => {

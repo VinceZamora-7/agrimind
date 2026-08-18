@@ -85,7 +85,7 @@ function plantAnalysisError(error, requestId) {
   };
 }
 
-function createRouter({ config, store, eventService, state, quotaGate, alerts, cloudSync, pairing, realtime, plantAnalyzer, slaveStore, slavePairing, weather, camera }) {
+function createRouter({ config, store, eventService, state, quotaGate, alerts, cloudSync, pairing, realtime, plantAnalyzer, slaveStore, slavePairing, weather, pagasa, weatherSimulator, environmentSensor, camera }) {
   function authenticate(req) {
     const token = bearer(req);
     if (config.apiToken && token === config.apiToken) return { authorized: true, client: { client_id: "legacy_api", role: "admin" } };
@@ -122,6 +122,10 @@ function createRouter({ config, store, eventService, state, quotaGate, alerts, c
       latest_event: latest, recent_images: store.images(12), recent_events: store.list(10).map(eventService.sanitize),
       slaves: slaveStore.list(),
       weather: weather.snapshot(),
+      pagasa: pagasa.snapshot(),
+      weather_simulator: weatherSimulator.snapshot(),
+      local_environment: environmentSensor.snapshot(),
+      zone_environment_status: state.zoneEnvironmentStatus,
     };
   }
 
@@ -250,7 +254,8 @@ function createRouter({ config, store, eventService, state, quotaGate, alerts, c
       try { const snapshot = await weather.refresh(); return sendJson(res, 200, { ok: true, results: await alerts.evaluateWeather(snapshot, { daily: true }) }); }
       catch (error) { return sendJson(res, error.status || 502, { ok: false, error: error.message }); }
     }
-    if (req.method === "GET" && url.pathname === "/api/sensors/status") return sendJson(res, 200, { sensors: slaveStore.list().map((reading) => ({ ...reading, offline: !reading.received_at || Date.now() - new Date(reading.received_at) >= config.semaphore.sensorOfflineMs })) });
+    if (req.method === "GET" && url.pathname === "/api/environment") return sendJson(res, 200, environmentSensor.snapshot());
+    if (req.method === "GET" && url.pathname === "/api/sensors/status") return sendJson(res, 200, { local_environment: environmentSensor.snapshot(), sensors: slaveStore.list().map((reading) => ({ ...reading, offline: !reading.received_at || Date.now() - new Date(reading.received_at) >= config.semaphore.sensorOfflineMs })) });
     const slaveSettingsMatch = url.pathname.match(/^\/api\/slaves\/(slave-[1-9][0-9]*)$/);
     if (req.method === "PUT" && slaveSettingsMatch) {
       if (authentication.client?.role !== "admin") return sendJson(res, 403, { ok: false, error: "Administrator access required" });
@@ -261,6 +266,7 @@ function createRouter({ config, store, eventService, state, quotaGate, alerts, c
         return sendJson(res, 200, { ok: true, slave });
       } catch (error) { return sendJson(res, error.status || 500, { ok: false, error: error.message }); }
     }
+    if (req.method === "GET" && url.pathname === "/api/weather/pagasa-alerts") { await pagasa.refresh(); return sendJson(res, 200, pagasa.snapshot()); }
     if (req.method === "GET" && url.pathname === "/api/weather") {
       await weather.refresh();
       return sendJson(res, 200, weather.snapshot());

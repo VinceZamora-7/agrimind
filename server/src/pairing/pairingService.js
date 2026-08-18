@@ -50,7 +50,8 @@ function createPairingService(config) {
     if (!config.pairing.enabled) throw Object.assign(new Error("Pairing is disabled"), { status: 403 });
     const firstPairing = data.clients.length === 0;
     const windowAuthorized = Boolean(data.pairing_open_until && new Date(data.pairing_open_until).getTime() > Date.now());
-    if (!firstPairing && !windowAuthorized) {
+    const alwaysAllowed = Boolean(config.pairing.allowAlways);
+    if (!firstPairing && !windowAuthorized && !alwaysAllowed) {
       throw Object.assign(new Error("Pairing is closed. Ask an administrator to allow a new device."), { status: 403 });
     }
     if (!/^[A-Za-z0-9_-]{8,128}$/.test(installationId || "")) throw Object.assign(new Error("Invalid installation ID"), { status: 400 });
@@ -140,12 +141,13 @@ function createPairingService(config) {
   }
 
   function info() {
+    const alwaysAllowed = Boolean(config.pairing.allowAlways);
     return {
       device_id: data.device_id,
       device_name: data.device_name,
       identity_fingerprint: identityFingerprint,
       pairing_enabled: config.pairing.enabled,
-      pairable: data.clients.length === 0 || Boolean(data.pairing_open_until && new Date(data.pairing_open_until).getTime() > Date.now()),
+      pairable: alwaysAllowed || data.clients.length === 0 || Boolean(data.pairing_open_until && new Date(data.pairing_open_until).getTime() > Date.now()),
       pairing_open_until: data.pairing_open_until,
       authentication_enforced: config.pairing.enforceAuth,
       paired_devices: data.clients.length,

@@ -1,0 +1,28 @@
+{
+  "simulator": "Agrimind Weather Simulator",
+  "updated_at": "2026-08-01T15:36:02.739Z",
+  "typhoon": {
+    "active": true,
+    "event_id": "typhoon_1785598362482_c50ee4",
+    "signal_number": 3,
+    "typhoon_name": "Bagyong Agrimind",
+    "issued_at": "2026-08-01T15:32:42.482Z"
+  },
+  "heat": {
+    "active": false,
+    "event_id": null,
+    "heat_index_c": null
+  },
+  "rain": {
+    "active": true,
+    "event_id": "rain_1785598419387_0d9a81",
+    "rain_probability_percent": 69,
+    "issued_at": "2026-08-01T15:33:39.387Z"
+  },
+  "daily": {
+    "active": true,
+    "event_id": "daily_1785598562739_5dcafc",
+    "summary": "Mostly Cloudy",
+    "issued_at": "2026-08-01T15:36:02.739Z"
+  }
+}

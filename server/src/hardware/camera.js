@@ -29,12 +29,45 @@ function createRealCamera(config) {
   let lastSuccessfulCaptureAt = null;
   let discoveryPromise = null;
   let testedCandidates = [];
+  let exposureMode = "unknown";
+  let lastBrightness = null;
+  let lastExposureTunedAt = null;
+
+  async function setControls(device, controls) {
+    await run("v4l2-ctl", ["-d", device, "--set-ctrl=" + controls]);
+  }
+
+  async function measureBrightness(filePath) {
+    const result = await run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-i", filePath, "-vf", "signalstats,metadata=print:file=-", "-frames:v", "1", "-f", "null", "-"]);
+    const output = result.stdout.toString("utf8") + "\n" + result.stderr;
+    const match = output.match(/YAVG=([0-9.]+)/);
+    return match ? Number(match[1]) : null;
+  }
+
+  async function tuneExposure(device, force = false) {
+    if (!force && lastExposureTunedAt && Date.now() - Date.parse(lastExposureTunedAt) < config.camera.exposureRetuneMs) return;
+    const testPath = path.join(config.capturesDir, ".camera_exposure_" + process.pid + "_" + Date.now() + ".jpg");
+    try {
+      await setControls(device, "auto_exposure=3,exposure_dynamic_framerate=1,white_balance_automatic=1,backlight_compensation=2,gain=25");
+      await run("fswebcam", ["-q", "-d", device, "-r", config.camera.resolution, "--no-banner", "--skip", String(config.camera.warmupFrames), testPath]);
+      lastBrightness = await measureBrightness(testPath);
+      if (lastBrightness != null && lastBrightness < config.camera.lowLightThreshold) {
+        await setControls(device, "auto_exposure=1,exposure_time_absolute=" + config.camera.lowLightExposure + ",gain=" + config.camera.lowLightGain + ",backlight_compensation=2,white_balance_automatic=1");
+        exposureMode = "low_light";
+      } else {
+        exposureMode = "automatic";
+      }
+      lastExposureTunedAt = new Date().toISOString();
+      console.log("Camera exposure mode: " + exposureMode + "; measured brightness=" + (lastBrightness == null ? "unknown" : lastBrightness.toFixed(1)));
+    } finally { fs.rmSync(testPath, { force: true }); }
+  }
 
   async function probe(device) {
     if (!fs.existsSync(device)) return false;
     const probePath = path.join(config.capturesDir, `.camera_probe_${process.pid}_${Date.now()}.jpg`);
     try {
-      await run("fswebcam", ["-q", "-d", device, "-r", config.camera.resolution, "--no-banner", probePath]);
+      await tuneExposure(device, true);
+      await run("fswebcam", ["-q", "-d", device, "-r", config.camera.resolution, "--no-banner", "--skip", String(config.camera.captureSkipFrames), probePath]);
       return fs.existsSync(probePath) && fs.statSync(probePath).size >= config.camera.minimumBytes;
     } catch (error) {
       lastError = `${device}: ${error.message}`;
@@ -69,7 +102,19 @@ function createRealCamera(config) {
   }
 
   async function captureFrame(device, image) {
-    await run("fswebcam", ["-q", "-d", device, "-r", config.camera.resolution, "--no-banner", image.path]);
+    await run("fswebcam", ["-q", "-d", device, "-r", config.camera.resolution, "--no-banner", "--skip", String(config.camera.captureSkipFrames), image.path]);
+    const compatiblePath = image.path + ".compatible.jpg";
+    try {
+      // fswebcam commonly produces 4:4:4 JPEGs. Some Android decoders render
+      // those as a black frame, so store a broadly compatible 4:2:0 JPEG.
+      await run("ffmpeg", [
+        "-hide_banner", "-loglevel", "error", "-y", "-i", image.path,
+        "-frames:v", "1", "-pix_fmt", "yuvj420p", compatiblePath,
+      ]);
+      fs.renameSync(compatiblePath, image.path);
+    } finally {
+      fs.rmSync(compatiblePath, { force: true });
+    }
     image.file_size = fs.statSync(image.path).size;
     if (image.file_size < config.camera.minimumBytes) {
       fs.rmSync(image.path, { force: true });
@@ -106,6 +151,7 @@ function createRealCamera(config) {
       }
       if (!device) throw new Error(lastError || "No working camera found");
       try {
+        await tuneExposure(device);
         return await captureBurstOnce(eventId, device);
       } catch (firstError) {
         console.error(`Camera capture failed on ${device}; rediscovering: ${firstError.message}`);
@@ -127,6 +173,9 @@ function createRealCamera(config) {
         last_successful_capture_at: lastSuccessfulCaptureAt,
         last_error: lastError,
         tested_candidates: testedCandidates,
+        exposure_mode: exposureMode,
+        measured_brightness: lastBrightness,
+        last_exposure_tuned_at: lastExposureTunedAt,
       };
     },
   };

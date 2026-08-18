@@ -20,7 +20,7 @@ function createEventService({ config, store, camera, classifier, alerts, cloudSy
     }
     let result;
     try {
-      result = await classifier.classify(event.best_image.path, event.event_id);
+      result = await classifier.classify(event.best_image.path, event.event_id, event.timestamp);
     } catch (error) {
       event.status = "analysis_failed";
       event.ai_error = error.message;
@@ -45,6 +45,7 @@ function createEventService({ config, store, camera, classifier, alerts, cloudSy
     state.isCapturing = true;
     try {
       const id = eventId();
+      const triggeredAt = new Date();
       console.log(`Capture started: ${id} (${trigger})`);
       realtime.broadcast("capture_started", { event_id: id, trigger });
       const images = await camera.captureBurst(id);
@@ -55,7 +56,9 @@ function createEventService({ config, store, camera, classifier, alerts, cloudSy
       const duplicateDistance = hash && latest?.image_fingerprint ? hammingDistance(hash, latest.image_fingerprint) : null;
       const duplicate = Boolean(config.duplicate.enabled && latest && Date.now() - new Date(latest.timestamp).getTime() < config.duplicate.windowMs && duplicateDistance <= config.duplicate.maxHammingDistance);
       const event = {
-        event_id: id, timestamp: new Date().toISOString(), trigger, mode: config.mode,
+        event_id: id, timestamp: triggeredAt.toISOString(), trigger, mode: config.mode,
+        capture_cooldown_seconds: Math.max(config.pir.cooldownMs, config.pir.groupingMs) / 1000,
+        next_capture_at: new Date(triggeredAt.getTime() + Math.max(config.pir.cooldownMs, config.pir.groupingMs)).toISOString(),
         camera_device: config.camera.device, resolution: config.camera.resolution,
         best_image: best, captured_images: images, image_fingerprint: hash,
         duplicate: duplicate ? { of_event_id: latest.event_id, hamming_distance: duplicateDistance } : null,

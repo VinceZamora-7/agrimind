@@ -9,7 +9,8 @@ fi
 PROJECT_DIR=/home/orangepi/Agrimind
 
 groupadd -f gpio
-usermod -aG gpio,video orangepi
+groupadd -f i2c
+usermod -aG gpio,video,i2c orangepi
 
 printf '%s\n' 'SUBSYSTEM=="gpio", KERNEL=="gpiochip*", GROUP="gpio", MODE="0660"' \
   > /etc/udev/rules.d/60-agrimind-gpio.rules

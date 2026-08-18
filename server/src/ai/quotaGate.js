@@ -37,7 +37,7 @@ function createQuotaGate(config, usagePath) {
   }
   function record(entry) {
     const usage = entries();
-    usage.push({ timestamp: new Date().toISOString(), ...entry });
+    usage.push({ ...entry, timestamp: entry.timestamp || new Date().toISOString() });
     writeJsonAtomic(usagePath, usage.slice(-1000));
   }
   function status() {

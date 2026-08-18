@@ -1,6 +1,7 @@
 const fs = require("fs");
 
 function createCloudSync(config) {
+  let farmSync = { last_success_at: null, last_failure_at: null, last_error: null };
   async function sync(event) {
     if (!config.cloud.enabled) return { synced: false, skipped: true, reason: "cloud_sync_disabled" };
     if (!config.cloud.baseUrl || !config.cloud.deviceToken) {
@@ -54,16 +55,42 @@ function createCloudSync(config) {
     }
   }
 
+  async function syncFarmStatus(payload) {
+    if (!config.cloud.enabled) return { synced: false, skipped: true, reason: "cloud_sync_disabled" };
+    if (!config.cloud.baseUrl || !config.cloud.deviceToken) return { synced: false, skipped: true, reason: "cloud_sync_not_configured" };
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), config.cloud.timeoutMs);
+    try {
+      const response = await fetch(config.cloud.baseUrl + "/api/device/farm-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Device-ID": config.cloud.deviceId, Authorization: "Bearer " + config.cloud.deviceToken },
+        body: JSON.stringify({ device_id: config.cloud.deviceId, ...payload }),
+        signal: controller.signal,
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "Cloud HTTP " + response.status);
+      const syncedAt = result.received_at || new Date().toISOString();
+      farmSync = { last_success_at: syncedAt, last_failure_at: farmSync.last_failure_at, last_error: null };
+      return { synced: true, synced_at: syncedAt, pending_commands: result.pending_commands || [] };
+    } catch (error) {
+      const failedAt = new Date().toISOString();
+      const message = error.name === "AbortError" ? "cloud_sync_timeout" : error.message;
+      farmSync = { last_success_at: farmSync.last_success_at, last_failure_at: failedAt, last_error: message };
+      return { synced: false, failed_at: failedAt, error: message };
+    } finally { clearTimeout(timer); }
+  }
+
   function status() {
     return {
       enabled: config.cloud.enabled,
       configured: Boolean(config.cloud.baseUrl && config.cloud.deviceToken),
       device_id: config.cloud.deviceId,
       base_url: config.cloud.baseUrl || null,
+      farm_status_sync: farmSync,
     };
   }
 
-  return { sync, status };
+  return { sync, syncFarmStatus, status };
 }
 
 module.exports = { createCloudSync };
