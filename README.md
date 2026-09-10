@@ -38,3 +38,4 @@ See `docs/setup.md` for complete instructions.
 
 The Orange Pi server defaults to `capture_only`: PIR events and images are stored locally, while Gemini and Semaphore remain disabled until explicitly configured. Cost protections include PIR debounce, a 10-second cooldown and 15-second grouping window, perceptual duplicate detection, minimum API intervals, hourly/daily request caps, a daily estimated-cost circuit breaker, and limited retries.
 # agrimind
+# agrimind
